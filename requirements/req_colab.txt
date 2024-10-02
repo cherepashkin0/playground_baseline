@@ -1,0 +1,12 @@
+
+lightgbm==4.5.0
+xgboost==2.1.1
+catboost==1.2.7
+scikit-learn==1.5.2
+polars==1.7.1
+numpy==1.26.4
+scipy==1.14.1
+optuna
+pandas==2.2.2
+colorama
+category_encoders
