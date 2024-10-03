@@ -15,7 +15,6 @@ from omegaconf import DictConfig, OmegaConf
 class CFG:
     pass
 
-@hydra.main(version_base=None, config_path=".", config_name="config")
 def config_init(cfg: DictConfig) -> None:
     # Print the configuration in YAML format (optional, for debugging)
     # print(OmegaConf.to_yaml(cfg))
@@ -27,7 +26,6 @@ def config_init(cfg: DictConfig) -> None:
 # with open('config.yaml', 'r') as file:
     # config = yaml.safe_load(file)
 
-@hydra.main(version_base=None, config_path=".", config_name="config")
 def wandb_init(cfg: DictConfig):
     # print(OmegaConf.to_yaml(cfg))  # For debugging, print the config in YAML format
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)  # Convert DictConfig to a dictionary
@@ -39,7 +37,7 @@ def wandb_init(cfg: DictConfig):
         mode=cfg_dict['wandb_params']['mode']
     )
 
-@hydra.main(version_base=None, config_path=".", config_name="config")
+# @hydra.main(version_base=None, config_path=".", config_name="config")
 def model_training_params(cfg: DictConfig):
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)  # Convert DictConfig to a dictionary
     models_config = cfg_dict['models']
@@ -82,6 +80,14 @@ def data_transform():
 
     PrintColor(f"---> Shapes = {Xtrain.shape} {ytrain.shape} {Xtest.shape}")
 
+    cv_selector = \
+    {
+     "RKF"   : RKF(n_splits = CFG.n_splits, n_repeats= CFG.n_repeats, random_state= CFG.state),
+     "RSKF"  : RSKF(n_splits = CFG.n_splits, n_repeats= CFG.n_repeats, random_state= CFG.state),
+     "SKF"   : SKF(n_splits = CFG.n_splits, shuffle = True, random_state= CFG.state),
+     "KF"    : KFold(n_splits = CFG.n_splits, shuffle = True, random_state= CFG.state),
+     "GKF"   : GKF(n_splits = CFG.n_splits)
+    }
     # Initializing the cv scheme:-
     cv = cv_selector[CFG.mdlcv_mthd]
 
@@ -112,11 +118,11 @@ def MakeFtre(X: pd.DataFrame, cat_cols: list):
     df = X.copy()
     df["loantoincome"] = (df["loan_amnt"] / df["person_income"]) - df["loan_percent_income"]
 
-    df['age_income_interaction'] = df['person_age'] * df['person_income']
-    df['income_loan_amnt_interaction'] = df['person_income'] * df['loan_amnt']
-    df['loan_amnt_int_rate_interaction'] = df['loan_amnt'] * df['loan_int_rate']
-    df['int_rate_to_income_ratio'] = df['loan_int_rate'] / df['person_income']
-    df['emp_length_to_age_ratio'] = df['person_emp_length'] / df['person_age']
+    # df['age_income_interaction'] = df['person_age'] * df['person_income']
+    # df['income_loan_amnt_interaction'] = df['person_income'] * df['loan_amnt']
+    # df['loan_amnt_int_rate_interaction'] = df['loan_amnt'] * df['loan_int_rate']
+    # df['int_rate_to_income_ratio'] = df['loan_int_rate'] / df['person_income']
+    # df['emp_length_to_age_ratio'] = df['person_emp_length'] / df['person_age']
 
 
     df[cat_cols] = df[cat_cols].astype("category")
@@ -236,27 +242,20 @@ def ensemble(Xtrain, ytrain, ygrp, OOF_Preds, Mdl_Preds):
     PrintColor(f"\n---> Mean Score = {scores:.6f}")
     wandb.log({"logistic_ensemble": scores})
 
-
-def main():
-    wandb_init()
+@hydra.main(version_base=None, config_path=".", config_name="config")
+def main(cfg:DictConfig):
+    config_init(cfg)
+    wandb_init(cfg)
     Path('figs').mkdir(exist_ok=True, parents=True)
     PrintColor(f"\n---> Configuration done!\n")
     Xtrain, Xtest, ytrain, ygrp = data_transform()
-    Mdl_Master = model_training_params()
+    Mdl_Master = model_training_params(cfg)
     OOF_Preds, Mdl_Preds = single_model(Mdl_Master, Xtrain, Xtest, ytrain, ygrp)
     ensemble(Xtrain, ytrain, ygrp, OOF_Preds, Mdl_Preds)
 
 
 if __name__=="__main__":
-    config_init()
-    cv_selector = \
-    {
-     "RKF"   : RKF(n_splits = CFG.n_splits, n_repeats= CFG.n_repeats, random_state= CFG.state),
-     "RSKF"  : RSKF(n_splits = CFG.n_splits, n_repeats= CFG.n_repeats, random_state= CFG.state),
-     "SKF"   : SKF(n_splits = CFG.n_splits, shuffle = True, random_state= CFG.state),
-     "KF"    : KFold(n_splits = CFG.n_splits, shuffle = True, random_state= CFG.state),
-     "GKF"   : GKF(n_splits = CFG.n_splits)
-    }
+
     # collect()
     pp = Preprocessor()
     pp.DoPreprocessing()

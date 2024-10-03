@@ -9,7 +9,10 @@ from sklearn.metrics import roc_auc_score
 from myimports import PrintColor
 from matplotlib import pyplot as plt
 from colorama import Fore, Style, init
-
+import ctypes
+libc = ctypes.CDLL("libc.so.6")
+from os import path, walk, getpid
+import wandb
 
 
 
@@ -229,7 +232,7 @@ class ModelTrainer:
 
         Xt = Xtest[Xdev.columns]
 
-        print(f"\n---> Shapes = {Xtr.shape} {ytr.shape} -- {Xdev.shape} {ydev.shape} -- {Xt.shape}")
+        # print(f"\n---> Shapes = {Xtr.shape} {ytr.shape} -- {Xdev.shape} {ydev.shape} -- {Xt.shape}")
         return (Xtr, ytr, Xdev, ydev, Xt)
 
     def MakePreds(self, X, fitted_model):
@@ -369,6 +372,7 @@ class ModelTrainer:
 
             nspace = 15 - len(method) - 2 if fold_nb <= 9 else 15 - len(method) - 1
             PrintColor(f"{method} Fold{fold_nb} {' ' * nspace} OOF = {score:.6f} | Train = {tr_score:.6f} | Iter = {best_iter:,.0f} ")
+            # wandb.log({f"{method}_OOF": score, f"{method}_Train": tr_score})
             mdl_best_iter.append(best_iter)
 
             if test_preds_req:
@@ -388,7 +392,8 @@ class ModelTrainer:
 
         PrintColor(f"\n---> {np.mean(scores):.6f} +- {np.std(scores):.6f} | OOF", color = Fore.RED)
         PrintColor(f"---> {np.mean(tr_scores):.6f} +- {np.std(tr_scores):.6f} | Train", color = Fore.RED)
-
+        scores_all = [np.mean(scores), np.mean(tr_scores)]
+        # wandb.log({f"{method}_OOF": np.mean(score), f"{method}_Train": np.mean(tr_score)})
         if mdl_best_iter < 0:
             pass
         else:
@@ -404,7 +409,8 @@ class ModelTrainer:
             oof_preds = np.concatenate([oof_preds, orig_preds], axis= 0)
         else:
             pass
-        return (fitted_models, oof_preds, test_preds, ftreimp, mdl_best_iter)
+
+        return (fitted_models, oof_preds, test_preds, ftreimp, mdl_best_iter, scores_all)
 
     def MakeOnlineModel(
         self, X, y, Xtest, model, method,
